@@ -5,9 +5,8 @@ import re
 from google.colab import files
 
 # 设置音频文件路径
-AUDIO_FILE = "/content/drive/MyDrive/Cut_1st3min_Audio_data/v058_MECOLAB_cut_1st3min.wav"
-
-OUTPUT_FOLDER = "/content/drive/MyDrive/Whisper_6method/"
+AUDIO_FILE = "{input_file}"
+OUTPUT_FOLDER = "{output_folder}"
 
 def transcribe_audio(file_path):
     print("加载Whisper medium模型...")

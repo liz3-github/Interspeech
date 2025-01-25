@@ -10,8 +10,8 @@ from math import ceil, floor
 from pydub import AudioSegment
 
 # 设置音频文件路径
-AUDIO_FILE = "/content/drive/MyDrive/Whisper_6method/v058_MECOLAB_minus3_mins.wav"
-OUTPUT_FOLDER = "/content/drive/MyDrive/Whisper_6method/Method5/"
+AUDIO_FILE = "{input_file}"
+OUTPUT_FOLDER = "{output_folder}"
 HF_AUTH_TOKEN = "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"
 
 class AppendResultsMixin:

@@ -7,8 +7,8 @@ import whisper
 import json
 
 # ---------- 全局设置 ----------
-AUDIO_FILE = "/content/drive/MyDrive/sample.wav"  # 要处理的音频文件
-OUTPUT_FOLDER = "/content/drive/MyDrive/output_segments_two_pass"
+AUDIO_FILE = "{input_file}"
+OUTPUT_FOLDER = "{output_folder}"
 MAX_SEGMENT_MB = 25  
 
 os.makedirs(OUTPUT_FOLDER, exist_ok=True)
