@@ -46,11 +46,13 @@ def merge_punctuation(words_array, display_text):
 
 def main():
     speech_key, service_region = "a8093abaa23e477899a2a3ec0c0a1ea1", "eastus"
-    weatherfilename = "/content/drive/MyDrive/Cut_1st3min_Audio_data/v058_MECOLAB_cut_1st3min.wav"
+    AUDIO_FILE = "{input_file}"
+    OUTPUT_FOLDER = "{output_folder}"   
+    weatherfilename = AUDIO_FILE
     hf_auth_token = "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"  # 替换为你的Hugging Face token
 
     # 确保输出文件夹存在
-    output_folder = "/content/drive/MyDrive/"
+    output_folder = OUTPUT_FOLDER
     os.makedirs(output_folder, exist_ok=True)
 
     # 进行说话者分离
