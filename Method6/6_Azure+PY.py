@@ -45,7 +45,7 @@ def merge_punctuation(words_array, display_text):
     return final_words
 
 def main():
-    speech_key, service_region = "a8093abaa23e477899a2a3ec0c0a1ea1", "eastus"
+    speech_key, service_region = "6ZpjiQJliTBcaUYuOtoYtFNrWo4uxrTTeK6CGNElsV9HKlqnB9XiJQQJ99BAACYeBjFXJ3w3AAAYACOGA8D8", "eastus"
     AUDIO_FILE = "{input_file}"
     OUTPUT_FOLDER = "{output_folder}"   
     weatherfilename = AUDIO_FILE
