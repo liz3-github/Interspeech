@@ -1,4 +1,5 @@
 import csv
+import argparse
 import json
 from datetime import datetime
 from typing import List, Dict, Any, Tuple, Optional
@@ -461,13 +462,22 @@ def write_csv_output(results: List[Dict], output_file: str):
         writer.writerows(results)
 
 def main():
-    manual_file = 'v058.txt'
-    machine_file = 'Method4_small_WBW (3).json'
-    output_file = 'transcript_comparison_Method6.csv'
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--manual_file", required=True, help="人工转录txt文件路径")
+    parser.add_argument("--machine_file", required=True, help="机器转录json文件路径")
+    parser.add_argument("--output_csv", default="transcript_comparison.csv",
+                        help="对齐后输出的初步CSV文件名，默认为 transcript_comparison.csv")
+    args = parser.parse_args()
+    #manual_file = 'v058.txt'
+    #machine_file = 'Method4_small_WBW (3).json'
+    #output_file = 'transcript_comparison_Method6.csv'
     
     try:
-        manual_data = load_manual_transcript(manual_file)
-        machine_data = load_machine_transcript(machine_file)
+        #manual_data = load_manual_transcript(manual_file)
+        manual_data = load_manual_transcript(args.manual_file)
+        #machine_data = load_machine_transcript(machine_file)
+        machine_data = load_machine_transcript(args.machine_file)
         
         aligner = TranscriptAligner()
         results = aligner.align(manual_data, machine_data)
@@ -476,10 +486,12 @@ def main():
         for r in results[:5]:
             logger.info(r)
         
-        write_csv_output(results, output_file)
+        #write_csv_output(results, output_file)
+        write_csv_output(results, args.output_csv)
         
         logger.info(f"Successfully processed {len(results)} segments")
-        logger.info(f"Results written to {output_file}")
+        #ogger.info(f"Results written to {output_file}")
+        logger.info(f"Results written to {args.output_csv}")
         
     except Exception as e:
         logger.error(f"Error occurred: {str(e)}", exc_info=True)

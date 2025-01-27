@@ -1,4 +1,5 @@
 import re
+import argparse
 import pandas as pd
 import numpy as np
 
@@ -279,8 +280,19 @@ def main(input_csv, output_csv, threshold=1.0):
 
 if __name__ == "__main__":
     # 示例用法:
-    input_file = "transcript_comparison_Method6.csv"
-    output_file = "transcript_final_align.csv"
-    time_threshold = 1.0  # 如果机器/人工的 start 时间差 <=1秒，则视为同一行
+    #input_file = "transcript_comparison_Method6.csv"
+    #output_file = "transcript_final_align.csv"
+    #time_threshold = 1.0  # 如果机器/人工的 start 时间差 <=1秒，则视为同一行
 
-    main(input_file, output_file, threshold=time_threshold)
+    #main(input_file, output_file, threshold=time_threshold)
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--input_csv", required=True,
+                        help="上一步 initial_align 或别的脚本生成的 CSV")
+    parser.add_argument("--output_csv", default="transcript_final_align.csv",
+                        help="本脚本输出的最终对齐CSV文件名")
+    parser.add_argument("--threshold", type=float, default=1.0,
+                        help="时间差阈值,秒数,默认 1.0")
+    args = parser.parse_args()
+
+    # 调用 main(input_csv, output_csv, threshold)
+    main(args.input_csv, args.output_csv, threshold=args.threshold)

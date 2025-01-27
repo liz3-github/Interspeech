@@ -1,5 +1,6 @@
 import pandas as pd
 import re
+import argparse
 from datetime import datetime
 
 def time_to_seconds(time_str):
@@ -141,18 +142,24 @@ def calculate_differences(df):
 
 def main():
     # 读取CSV文件 (根据需要修改路径)
-    input_file = 'transcript_final_align.csv'
-    df = pd.read_csv(input_file)
-    
+    #input_file = 'transcript_final_align.csv'
+    #df = pd.read_csv(input_file)
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--input_csv", required=True,
+                        help="final_align生成的 CSV 文件")
+    parser.add_argument("--output_csv", default="diff.csv",
+                        help="差异分析的输出文件")
+    args = parser.parse_args()
+
+    df = pd.read_csv(args.input_csv)
+
     # 计算差异
     diff_df = calculate_differences(df)
     
     # 导出结果
-    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M")
-    output_file = f'differences_analysis_{timestamp}.csv'
-    diff_df.to_csv(output_file, index=False)
+    out_base = f"{args.audio_id}_{args.method_name}_diff.csv"
+    diff_df.to_csv(out_base, index=False)
+    print(f"Analysis completed. Results saved to {out_base}")
     
-    print(f"Analysis completed. Results saved to {output_file}")
-
 if __name__ == "__main__":
     main()
