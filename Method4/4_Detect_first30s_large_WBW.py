@@ -67,6 +67,9 @@ def transcribe_audio_with_timestamps(file_path, language_param, model):
     """
     使用本地模型 model.transcribe(...) 完成词级别转录。
     language_param 可以是具体语言字符串("en"/"zh")或 None(自动检测)。
+    
+    在这里做少量修改以获取最后大模型实际使用/检测到的语言。
+    返回 (segments_list, final_language_str)
     """
     try:
         options = {
@@ -82,26 +85,41 @@ def transcribe_audio_with_timestamps(file_path, language_param, model):
             options["language"] = language_param
 
         result = model.transcribe(file_path, **options)
-        return result["segments"] if "segments" in result else None
+        
+        # 这行是新增的：从大模型的返回里获取最终语言
+        final_language = result.get("language", None)
+        
+        # 取 segments 供后续拼接
+        segments = result["segments"] if "segments" in result else None
+        
+        # 返回 (segments, final_language)
+        return (segments, final_language)
     except Exception as e:
         print(f"An error occurred during transcription for {file_path}: {e}")
-        return None
+        return (None, None)
 
 def format_timestamp(seconds):
     minutes = int(seconds // 60)
     sec = int(seconds % 60)
     return f"{minutes:02d}:{sec:02d}"
 
-def format_segments(segments):
+def format_segments(segments, final_language):
+    """
+    这里在原 format_segments 基础上，只加了一个 final_language 参数，
+    用于把大模型最终使用的语言写进每段的 JSON。
+    """
     if not segments:
         return []
     formatted = []
     for seg in segments:
+        start_time = seg["start"]
+        end_time = seg["end"]
         segment_data = {
-            "start": f"{seg['start']:.2f}",
-            "end": f"{seg['end']:.2f}",
+            "Timestamp": f"{start_time:.2f} - {end_time:.2f}",
             "text": seg["text"],
-            "Words": []
+            "Words": [],
+            # 新增字段：记录大模型最终使用/检测到的语言
+            "Language": final_language if final_language else "und"
         }
         if "words" in seg and seg["words"]:
             # 提取词级信息
@@ -118,21 +136,28 @@ def format_segments(segments):
         formatted.append(segment_data)
     return formatted
 
-
 def transcribe_audio_segments(segments_paths, language_param, model):
     """
     对分割后的音频片段逐个调用本地 whisper，并把结果合并。
     language_param 可为 None 或 "en" / "zh" 等。
+
+    这里也做最小修改：返回 (all_transcriptions, final_language_used)
+    方便后续输出 JSON 时知道究竟使用了哪种语言。
     """
     all_transcriptions = []
+    final_language_used = None  # 记录大模型真实检测到的语言
+
     for i, seg_path in enumerate(segments_paths, 1):
         print(f"Transcribing segment {i}/{len(segments_paths)} => {seg_path}...")
-        seg_result = transcribe_audio_with_timestamps(seg_path, language_param, model)
+        seg_result, seg_lang = transcribe_audio_with_timestamps(seg_path, language_param, model)
         if seg_result:
             all_transcriptions.extend(seg_result)
+            # 如果之前 final_language_used 还没有值，则用第一个非空 seg_lang
+            if final_language_used is None and seg_lang is not None:
+                final_language_used = seg_lang
         else:
             print(f"Transcription failed for segment {i}")
-    return all_transcriptions
+    return (all_transcriptions, final_language_used)
 
 def main():
     print("Detecting language from the first 30 seconds...")
@@ -149,8 +174,14 @@ def main():
     final_model = whisper.load_model("large")
 
     # 这里把 language 传给 transcribe_audio_segments, 如果是 None, 就自动检测
-    all_segments = transcribe_audio_segments(audio_segments, detected_language, final_model)
-    formatted_segments = format_segments(all_segments)
+    all_segments, final_language = transcribe_audio_segments(audio_segments, detected_language, final_model)
+
+    # 如果最终语言没检测到，就标记为 "und"
+    if final_language is None:
+        final_language = "und"
+
+    # 调用 format_segments 时，把最后的语言也传进去
+    formatted_segments = format_segments(all_segments, final_language)
 
     # 输出到 JSON
     transcription_file = os.path.join(OUTPUT_FOLDER, "Method4_large_WBW.json")
