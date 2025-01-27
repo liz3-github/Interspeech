@@ -1,0 +1,311 @@
+import os
+import glob
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+from scipy import stats
+
+def time_str_to_seconds(t_str):
+    """
+    假设 t_str 形如 'MM:SS.xx' 或 'HH:MM:SS.xx'
+    或直接 '00:00.34' 这种只到秒.毫秒的。
+    返回浮点数秒，解析失败就返回 None。
+    """
+    # 你可以用正则先判断格式，也可以用 datetime.strptime 等。
+    # 这里简单用拆分演示。
+    
+    # 可能是 'MM:SS.xx' 或 'HH:MM:SS.xx'
+    # 先按 ':' 分割
+    parts = t_str.split(':')
+    if len(parts) == 2:
+        # 说明是 'MM:SS.xx'
+        mm = float(parts[0])
+        ss = float(parts[1])
+        return mm*60 + ss
+    elif len(parts) == 3:
+        # 'HH:MM:SS.xx'
+        hh = float(parts[0])
+        mm = float(parts[1])
+        ss = float(parts[2])
+        return hh*3600 + mm*60 + ss
+    else:
+        return None
+
+def calculate_accuracy(df, threshold=0.5):
+    total_rows = len(df)
+    if total_rows == 0:
+        return None
+
+    # Onset time - 用 threshold 判断
+    # 先把 'Absolute_onset_time_difference' 都转成秒数
+    onset_seconds = df['Absolute_onset_time_difference'].apply(time_str_to_seconds)
+    # no_diff_rows_onset = 差异小于 threshold 的行数
+    no_diff_rows_onset = (onset_seconds < threshold).sum()
+    onset_accuracy = no_diff_rows_onset / total_rows
+
+    # Timestamp - 同样用 threshold
+    timestamp_seconds = df['TimeStamp_difference'].apply(time_str_to_seconds)
+    zero_timestamp_rows = (timestamp_seconds < threshold).sum()
+    timestamp_accuracy = zero_timestamp_rows / total_rows
+
+    # 3. Text Accuracy (Word Count)
+    #    如果 Text_difference_word_count == 0，表示没有差异
+    no_diff_wordcount_rows = df['Text_difference_word_count'].eq(0).sum()
+    text_wordcount_accuracy = no_diff_wordcount_rows / total_rows
+
+    # 4. Text Accuracy (Exact)
+    #    如果 Text_difference == False，表示两者完全一致
+    no_text_diff_rows = df['Text_difference'].eq(False).sum()
+    text_accuracy = no_text_diff_rows / total_rows
+
+    # 5. Language Accuracy
+    no_lang_diff_rows = df['Language_difference'].eq(False).sum()
+    lang_accuracy = no_lang_diff_rows / total_rows
+
+    # 6. Speaker Accuracy
+    no_speaker_diff_rows = df['Speaker_difference'].eq(False).sum()
+    speaker_accuracy = no_speaker_diff_rows / total_rows
+
+    return {
+        'Total_Rows': total_rows,
+
+        'Onset_Time_Accuracy': onset_accuracy,
+        'Timestamp_Accuracy': timestamp_accuracy,
+
+        # 这里给两个 Text 相关的准确率留不同的名字，方便后续统计/可视化
+        'Text_Accuracy_WordCount': text_wordcount_accuracy,
+        'Text_Accuracy_Exact': text_accuracy,
+
+        'Language_Accuracy': lang_accuracy,
+        'Speaker_Accuracy': speaker_accuracy,
+
+        'Matching_Rows': {
+            'Onset_Time': no_diff_rows_onset,
+            'Timestamp': zero_timestamp_rows,
+            'Text_WordCount': no_diff_wordcount_rows,
+            'Text_Exact': no_text_diff_rows,
+            'Language': no_lang_diff_rows,
+            'Speaker': no_speaker_diff_rows
+        }
+    }
+
+
+
+def process_files(csv_pattern):
+    """
+    扫描给定的 csv_pattern（如 '/somepath/*.csv'），
+    并调用 calculate_accuracy 计算每个文件的准确率。
+    返回一个 all_results 列表。
+    """
+    files = sorted(glob.glob(csv_pattern))
+    print(f"\n扫描路径: {csv_pattern}")
+    print(f"找到 {len(files)} 个 CSV 文件")
+
+    all_results = []
+
+    for file in files:
+        filename = os.path.basename(file)
+        print(f"处理：{filename}")
+        try:
+            df = pd.read_csv(file)
+            results = calculate_accuracy(df)
+            if results:
+                results['Filename'] = filename
+                all_results.append(results)
+        except Exception as e:
+            print(f"处理 {filename} 出错: {str(e)}")
+
+    print(f"成功处理的文件总数: {len(all_results)}")
+    return all_results
+
+
+def calculate_overall_statistics(all_results):
+    """
+    对 all_results 进行汇总，计算整体的均值、标准差、标准误、最小值、最大值等
+    并返回 stats 字典。
+    """
+    df = pd.DataFrame(all_results)
+    if df.empty:
+        return {}
+
+    accuracy_cols = [col for col in df.columns if 'Accuracy' in col]
+    stats_dict = {}
+
+    for col in accuracy_cols:
+        metric = col.replace('_Accuracy', '')
+        values = df[col]
+        stats_dict[metric] = {
+            'Mean': values.mean(),
+            'SD': values.std(),
+            'SE': values.std() / np.sqrt(len(values)),
+            'Min': values.min(),
+            'Max': values.max()
+        }
+
+    return stats_dict
+
+
+def save_results(all_results, stats_dict, output_dir, method_name):
+    """
+    保存详细结果、统计结果到 CSV，并且输出可视化图表到指定目录下。
+    method_name 用于在图表标题上标识当前方法名称。
+    """
+    if not all_results:
+        print("没有可保存的结果（all_results 为空）")
+        return
+
+    os.makedirs(output_dir, exist_ok=True)
+
+    # --- 保存详细结果 CSV ---
+    detailed_df = pd.DataFrame(all_results)
+    detailed_path = os.path.join(output_dir, f"detailed_results_{method_name}.csv")
+    detailed_df.to_csv(detailed_path, index=False)
+    print(f"详细结果已保存到: {detailed_path}")
+
+    # --- 保存统计结果 CSV ---
+    if not stats_dict:
+        print("没有可保存的统计结果（stats_dict 为空）")
+        return
+    stats_df = pd.DataFrame(stats_dict).transpose()
+    stats_path = os.path.join(output_dir, f"statistics_results_{method_name}.csv")
+    stats_df.to_csv(stats_path)
+    print(f"统计结果已保存到: {stats_path}")
+
+    # --- 绘图并保存 ---
+    plt.rcParams['font.family'] = 'Georgia'
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 6), gridspec_kw={'width_ratios': [2, 1]})
+
+    # 左侧子图：准确率对比
+    means = [stats_dict[m]['Mean'] for m in stats_dict.keys()]
+    sds   = [stats_dict[m]['SD'] for m in stats_dict.keys()]
+    x_pos = range(len(stats_dict))
+
+    ax1.grid(True, linestyle='--', alpha=0.2, zorder=0)
+    bar_color = '#2E86C1'
+    bars = ax1.bar(x_pos, means, yerr=sds, capsize=4,
+                   color=bar_color, width=0.4,
+                   error_kw={'elinewidth': 0, 'capthick': 0, 'ecolor': 'none'},
+                   zorder=3)
+
+    ax1.set_title(f'{method_name} - ASR vs Manual Annotation\n(N=? files, total duration ?)',
+                  fontsize=14,
+                  fontweight='bold')
+
+    metrics_labels = {
+        'Onset_Time': 'Onset Time\nAccuracy',
+        'Timestamp': 'Timestamp\nAccuracy',
+        'Text': 'Text Word Count\nTranscription',
+        'Language': 'Language\nDetection',
+        'Speaker': 'Speaker\nIdentification'
+    }
+    ax1.set_xticks(x_pos)
+    ax1.set_xticklabels([metrics_labels.get(k, k) for k in stats_dict.keys()],
+                        rotation=0, ha='center', fontsize=10)
+    ax1.set_ylabel('Agreement Rate', fontsize=11, labelpad=10)
+    ax1.set_ylim(0, 1.05)
+    ax1.tick_params(axis='y', labelsize=10)
+
+    # 在柱子里显示“均值 ± 标准差”
+    for idx, bar in enumerate(bars):
+        height = means[idx]
+        sd_val = sds[idx]
+        ax1.text(idx, height/2,
+                 f'{height:.1%}\n±{sd_val:.1%}',
+                 ha='center', va='center',
+                 fontsize=10, color='white', fontweight='bold')
+
+    # 右侧子图：效率对比
+    # 这里你可以根据自己实际情况调整
+    manual_time_min = 180  # 180min = 3小时
+    manual_time_max = 240  # 240min = 4小时
+    asr_time_min = 43
+    asr_time_max = 63
+
+    manual_color = '#808080'
+    asr_color    = '#2ecc71'
+
+    ax2.bar(['Manual\nAnnotation', 'ASR+Human\nAdjustment'],
+            [manual_time_max, asr_time_max],
+            color=[manual_color, asr_color],
+            width=0.4, alpha=0.3,
+            label='Max')
+
+    bars2 = ax2.bar(['Manual\nAnnotation', 'ASR+Human\nAdjustment'],
+                    [manual_time_min, asr_time_min],
+                    color=[manual_color, asr_color],
+                    width=0.4)
+
+    ax2.set_title('Efficiency Comparison\n(For ~20-30 min video)',
+                  fontsize=14, fontweight='bold')
+    ax2.set_ylabel('Time (minutes)', fontsize=11)
+    ax2.grid(True, linestyle='--', alpha=0.2, zorder=0)
+
+    for i, bar in enumerate(bars2):
+        if i == 0:
+            time_text = "3-4h"
+        else:
+            time_text = "43-63m"
+        ax2.text(i, bar.get_height()/2,
+                 time_text,
+                 ha='center', va='center',
+                 fontsize=10, color='white', fontweight='bold')
+
+    ax1.set_facecolor('white')
+    ax2.set_facecolor('white')
+    fig.set_facecolor('white')
+    plt.tight_layout()
+
+    fig_path = os.path.join(output_dir, f"accuracy_and_efficiency_{method_name}.png")
+    plt.savefig(fig_path, dpi=300, bbox_inches='tight', facecolor='white')
+    plt.close()
+    print(f"图表已保存到: {fig_path}")
+
+
+def main():
+    """
+    主函数：对指定的方法文件夹依次处理 *_diff.csv，计算准确率并出图。
+    """
+    # 可以在这里列出你想处理的目录 (Method1 ~ Method6) 及其子路径
+    method_folders = [
+        'Method1/medium',
+        'Method2/medium',
+        'Method3/medium',
+        'Method4/medium',
+        'Method5/medium',
+        'Method6',
+    ]
+
+    # 根目录，根据实际情况替换
+    root_path = 'WBW_Align_Results'
+
+    for method_subpath in method_folders:
+        method_name = method_subpath.replace('/', '_')  # 用来当输出文件名的一部分
+        print("\n" + "="*60)
+        print(f"开始处理：{method_subpath}")
+        
+        # 1. 找到所有 "*_diff.csv"
+        csv_pattern = os.path.join(root_path, method_subpath, '*_diff.csv')
+
+        # 2. 批量读取并计算准确率
+        all_results = process_files(csv_pattern)
+        if not all_results:
+            print(f"警告：在 {method_subpath} 中找不到可处理的文件或处理结果为空。")
+            continue
+        
+        # 3. 计算整体统计
+        stats_dict = calculate_overall_statistics(all_results)
+        if not stats_dict:
+            print(f"警告：在 {method_subpath} 中统计结果为空。")
+            continue
+
+        # 4. 保存结果并绘图
+        output_dir = f"accuracy_results_{method_name}"
+        save_results(all_results, stats_dict, output_dir, method_name)
+        print(f"{method_subpath} 处理完成。")
+
+    print("\n所有方法处理结束。")
+
+
+if __name__ == "__main__":
+    main()
