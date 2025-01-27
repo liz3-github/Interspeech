@@ -147,6 +147,10 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--input_csv", required=True,
                         help="final_align生成的 CSV 文件")
+    parser.add_argument("--audio_id", required=True,
+                       help="音频文件ID")
+    parser.add_argument("--method_name", required=True,
+                       help="方法名称")
     parser.add_argument("--output_csv", default="diff.csv",
                         help="差异分析的输出文件")
     args = parser.parse_args()
@@ -157,9 +161,10 @@ def main():
     diff_df = calculate_differences(df)
     
     # 导出结果
-    out_base = f"{args.audio_id}_{args.method_name}_diff.csv"
-    diff_df.to_csv(out_base, index=False)
-    print(f"Analysis completed. Results saved to {out_base}")
+    if args.output_csv:
+        diff_df.to_csv(args.output_csv, index=False)
+        print(f"Analysis completed. Results saved to {args.output_csv}")
+
     
 if __name__ == "__main__":
     main()
