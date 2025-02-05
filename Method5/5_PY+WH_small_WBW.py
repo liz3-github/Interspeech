@@ -36,56 +36,37 @@ class WriteJSONFormat(AppendResultsMixin):
         self.data = []
         super().__init__()
 
-    def __call__(self, result: dict, audio_path: str, speaker: str,
-                 options: Optional[dict] = None, **kwargs):
-        # 遍历段落
-        print(result.keys())  # 调试打印
-        if "language" in result:
-            print(f"Language found: {result['language']}")
-        else:
-            print("No language key found")
-
-        for segment in result["segments"]:
-            # 构造 words 列表
+    def __call__(self, result: dict, audio_path: str, speaker: str, options: Optional[dict] = None, **kwargs):
+        for segment in result['segments']:
             words_data = []
             if "words" in segment:
-                for w in segment["words"]:
-                    # Whisper 默认并不包含 'probability'
-                    # 如果你的版本带了 probability，就存
-                    # 若没这个字段，你可以 w.get("probability", 0.0)
-                    words_data.append({
-                        "word": w["word"],
-                        "start": w["start"],
-                        "end": w["end"],
-                        "probability": w.get("probability", 0.0)
-                    })
-
-            # 拼出 Timestamp 字符串: "0.03 - 2.71"
-            start_time = segment["start"]
-            end_time = segment["end"]
-            timestamp_str = f"{start_time:.2f} - {end_time:.2f}"
-            
-            # 将想要的字段写入 self.data
+              for w in segment["words"]:
+                w_start_str = self.format_timestamp(w["start"])
+                w_end_str = self.format_timestamp(w["end"])
+                words_data.append({
+                    "word": w["word"],
+                    "start": w_start_str,
+                    "end": w_end_str
+                })
             self.data.append({
-                "Timestamp": timestamp_str,
+                "Timestamp": f"{self.format_timestamp(segment['start'])} - {self.format_timestamp(segment['end'])}",
                 "Speaker": speaker,
-                "Words": words_data,
-                "Language": result['language']
+                "Text": segment['text'].strip(),
+                "Language": result['language'],
+                "Words": words_data
             })
+
+    def format_timestamp(self, seconds: float) -> str:
+        minutes = int(seconds // 60)
+        seconds = int(seconds % 60)
+        return f"{minutes:02d}:{seconds:02d}"
 
     def write_to_file(self, audio_path: str):
         output_filename = "Method5_small_WBW.json"
         path = os.path.join(self.output_dir, output_filename)
-        print(f"Total entries before writing: {len(self.data)}")
-        print("First entry sample:", self.data[0])
-        
         with open(path, 'w', encoding="utf-8") as f:
             json.dump(self.data, f, ensure_ascii=False, indent=2)
-            
-        # 验证写入后的文件
-        with open(path, 'r', encoding="utf-8") as f:
-            written_data = json.load(f)
-        print(f"Total entries in written file: {len(written_data)}")
+        print(f"JSON file written to {path}")
 
 def diarize_audio(HF_AUTH_TOKEN, AUDIO_FILE):
     pipeline = Pipeline.from_pretrained(
@@ -206,16 +187,8 @@ def main(use_quantization=False):
     custom_writer = WriteCustomFormat('/content') 
     json_writer = WriteJSONFormat(OUTPUT_FOLDER)  # 使用 OUTPUT_FOLDER
 
-    whisper_options = {
-        "verbose": None,
-        "word_timestamps": True,
-        "task": "transcribe",
-        "suppress_tokens": "",
-        "language": None,  # 自动检测语言
-        "temperature": 0.0,  # 降低随机性
-        "condition_on_previous_text": True  # 考虑上下文
-    }
-
+    whisper_options = {"verbose": None, "word_timestamps": True, 
+                       "task": "transcribe", "suppress_tokens": ""}
     writer_options = {"max_line_width": 55, "max_line_count": 2, "highlight_words": False}
 
     diarization = diarize_audio(HF_AUTH_TOKEN, AUDIO_FILE)
@@ -227,11 +200,11 @@ def main(use_quantization=False):
         mapped_speaker = map_speaker_label(speaker)
         result = model.transcribe(start=turn.start, end=turn.end, options=whisper_options)
         language = result['language']
-        print(f"{mapped_speaker}: {turn.start:.1f}s - {turn.end:.1f}s, Language: {language}")
+        print(f"{speaker}: {turn.start:.1f}s - {turn.end:.1f}s, Language: {language}")
         
         srt_writer(result, AUDIO_FILE, writer_options)
-        custom_writer(result, AUDIO_FILE, speaker=mapped_speaker)
-        json_writer(result, AUDIO_FILE, speaker=mapped_speaker)
+        custom_writer(result, AUDIO_FILE, speaker=speaker)
+        json_writer(result, AUDIO_FILE, speaker=speaker)
 
     # 在循环结束后，写入 JSON 文件
     json_writer.write_to_file(AUDIO_FILE)
