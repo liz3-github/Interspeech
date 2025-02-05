@@ -6,6 +6,11 @@ import torch
 import os
 import re
 
+def format_timestamp(self, seconds: float) -> str:
+        minutes = int(seconds // 60)
+        seconds = int(seconds % 60)
+        return f"{minutes:02d}:{seconds:02d}"
+
 def diarize_audio(hf_auth_token, audio_file):
     pipeline = Pipeline.from_pretrained("pyannote/speaker-diarization-3.1", use_auth_token=hf_auth_token)
     device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -93,7 +98,7 @@ def main():
 
             offset_seconds = evt.result.offset / 1e7
             duration_seconds = evt.result.duration / 1e7
-            timestamp_str = f"{offset_seconds:.2f} - {(offset_seconds + duration_seconds):.2f}"
+            timestamp_str = f"{format_timestamp(offset_seconds)} - {format_timestamp(offset_seconds + duration_seconds)}"
 
             speaker = "Unknown"
             for turn, _, speaker_label in diarization.itertracks(yield_label=True):
