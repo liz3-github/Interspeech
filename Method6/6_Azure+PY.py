@@ -6,7 +6,7 @@ import torch
 import os
 import re
 
-def format_timestamp(self, seconds: float) -> str:
+def format_timestamp(seconds: float) -> str:
         minutes = int(seconds // 60)
         seconds = int(seconds % 60)
         return f"{minutes:02d}:{seconds:02d}"
@@ -122,8 +122,8 @@ def main():
                         w_end = w_offset_s + w_duration_s
                         words_array.append({
                             "word": w["Word"],
-                            "start": w_start,
-                            "end": w_end,
+                            "start": format_timestamp(w_start),
+                            "end": format_timestamp(w_end),
                             "probability": w.get("Confidence", 0.0)
                         })
 
