@@ -13,7 +13,6 @@ def format_timestamp(seconds: float) -> str:
         seconds = int(seconds % 60)
         return f"{minutes:02d}:{seconds:02d}"
 
-
 def transcribe_audio(file_path):
     print("加载Whisper small模型...")
     model = whisper.load_model("small")
@@ -23,7 +22,8 @@ def transcribe_audio(file_path):
         "verbose": None,
         "word_timestamps": True,
         "task": "transcribe",
-        "suppress_tokens": ""
+        "suppress_tokens": "",
+
     }
 
     print("开始转录...")
@@ -34,6 +34,7 @@ def transcribe_audio(file_path):
     )
 
     return result
+
 
 def process_and_format_transcription(result):
     formatted_results = []
