@@ -14,6 +14,10 @@ MAX_SEGMENT_MB = 25
 
 os.makedirs(OUTPUT_FOLDER, exist_ok=True)
 
+def format_timestamp(seconds: float) -> str:
+        minutes = int(seconds // 60)
+        seconds = int(seconds % 60)
+        return f"{minutes:02d}:{seconds:02d}"
 
 # ========== 第一步：切分音频（示例：按大小分割） ==========
 def split_audio(file_path, max_size_mb=25):
@@ -91,8 +95,6 @@ def process_segment(segment_path, start_time, original_audio, quick_model, final
         "word_timestamps": True,
         "task": "transcribe",
         "suppress_tokens": "",
-        "temperature": 0.0,  # 降低随机性
-        "condition_on_previous_text": True  # 考虑上下文
     }
     whisper_options["language"] = final_language_param
 
@@ -119,19 +121,29 @@ def process_segment(segment_path, start_time, original_audio, quick_model, final
         else:
             lang = detect_language_improved(seg_text)  # fallback
 
-        words_list = [{
-            "word": w["word"],
-            "start": w["start"] + start_time,
-            "end": w["end"] + start_time,
-            "probability": w["probability"]
-        } for w in seg.get("words", [])]
+        start_str = format_timestamp(seg_start)
+        end_str   = format_timestamp(seg_end)
+
+        words_list = []
+        for w in seg.get("words", []):
+            w_start = w["start"] + start_time
+            w_end   = w["end"]   + start_time
+            words_list.append({
+                "word": w["word"],
+                # === 改动2：这里也用 format_timestamp() ===
+                "start": format_timestamp(w_start),
+                "end":   format_timestamp(w_end),
+                "probability": w["probability"]
+            })
 
         processed_segments.append({
-            "Timestamp": f"{seg_start:.2f} - {seg_end:.2f}",
+            # 这里把 f"{seg_start:.2f} - {seg_end:.2f}" 改成整秒
+            "Timestamp": f"{start_str} - {end_str}",
             "Words": words_list,
             "text": seg_text,
             "Language": lang
         })
+        
 
 
     return processed_segments
