@@ -8,6 +8,12 @@ from google.colab import files
 AUDIO_FILE = "{input_file}"
 OUTPUT_FOLDER = "{output_folder}"
 
+def format_timestamp(seconds: float) -> str:
+        minutes = int(seconds // 60)
+        seconds = int(seconds % 60)
+        return f"{minutes:02d}:{seconds:02d}"
+
+
 def transcribe_audio(file_path):
     print("加载Whisper small模型...")
     model = whisper.load_model("small")
@@ -17,10 +23,7 @@ def transcribe_audio(file_path):
         "verbose": None,
         "word_timestamps": True,
         "task": "transcribe",
-        "suppress_tokens": "",
-        "language": None,  # 自动检测语言
-        "temperature": 0.0,  # 降低随机性
-        "condition_on_previous_text": True  # 考虑上下文
+        "suppress_tokens": ""
     }
 
     print("开始转录...")
@@ -39,10 +42,13 @@ def process_and_format_transcription(result):
     for segment in result['segments']:
         words_with_timestamps = []
         for word in segment['words']:
+            w_start_str = format_timestamp(word["start"])
+            w_end_str = format_timestamp(word["end"])
+
             words_with_timestamps.append({
                 "word": word['word'],
-                "start": (word['start']),
-                "end": (word['end'])
+                "start": w_start_str,
+                "end": w_end_str
             })
 
         formatted_results.append({
