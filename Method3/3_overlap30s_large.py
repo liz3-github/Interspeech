@@ -7,6 +7,11 @@ import whisper
 AUDIO_FILE = "{input_file}"
 OUTPUT_FOLDER = "{output_folder}"
 
+def format_timestamp(seconds: float) -> str:
+        minutes = int(seconds // 60)
+        seconds = int(seconds % 60)
+        return f"{minutes:02d}:{seconds:02d}"
+
 def split_audio(file_path, segment_length=60000, overlap=30000):
     """
     Split audio into overlapping segments
@@ -31,9 +36,7 @@ def transcribe_audio_with_timestamps(model, file_path):
             "word_timestamps": True,
             "task": "transcribe",
             "suppress_tokens": "",
-            "language": None,
-            "temperature": 0.0,
-            "condition_on_previous_text": True
+
         }
         result = model.transcribe(file_path, **whisper_options)
         return result
@@ -82,8 +85,8 @@ def process_transcription(transcription, offset_ms):
                 w_abs_end   = base_offset_sec + w["end"]
                 words_list.append({
                     "word": w["word"],
-                    "start": round(w_abs_start, 2),
-                    "end":   round(w_abs_end,   2)
+                    "start": format_timestamp(w_abs_start),
+                    "end":   format_timestamp(w_abs_end)
                 })
 
         # 把该段信息添加到输出列表
@@ -184,7 +187,7 @@ def main():
 
     # 5) 输出到 JSON
     if merged_segments:
-        transcription_file = os.path.join(OUTPUT_FOLDER, "Method3_Model_large_WBW.json")
+        transcription_file = os.path.join(OUTPUT_FOLDER, "Method3_large_WBW.json")
         with open(transcription_file, 'w', encoding='utf-8') as f:
             json.dump(merged_segments, f, ensure_ascii=False, indent=2)
         print(f"Transcription saved to {transcription_file}")

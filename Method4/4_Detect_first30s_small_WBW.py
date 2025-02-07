@@ -73,13 +73,10 @@ def transcribe_audio_with_timestamps(file_path, language_param, model):
     """
     try:
         options = {
+            "verbose": None,
             "word_timestamps": True,
             "task": "transcribe",
-            "verbose": None,
-            "temperature": 0.0,
-            "verbose": None,
-            "suppress_tokens": "",
-            "condition_on_previous_text": True  # 考虑上下文
+            "suppress_tokens": ""
         }
         if language_param is not None:
             options["language"] = language_param
@@ -98,10 +95,11 @@ def transcribe_audio_with_timestamps(file_path, language_param, model):
         print(f"An error occurred during transcription for {file_path}: {e}")
         return (None, None)
 
-def format_timestamp(seconds):
+
+def format_timestamp(seconds: float) -> str:
     minutes = int(seconds // 60)
-    sec = int(seconds % 60)
-    return f"{minutes:02d}:{sec:02d}"
+    seconds = int(seconds % 60)
+    return f"{minutes:02d}:{seconds:02d}"
 
 def format_segments(segments, final_language):
     """
@@ -126,8 +124,8 @@ def format_segments(segments, final_language):
             for w in seg["words"]:
                 word_data = {
                     "word": w["word"],
-                    "start": w["start"],
-                    "end": w["end"]
+                    "start": format_timestamp(w["start"]),
+                    "end": format_timestamp(w["end"])
                 }
                 # 如果包含 probability，可加上
                 if "probability" in w:
