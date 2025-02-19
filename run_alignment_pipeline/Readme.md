@@ -128,5 +128,3 @@ Outputs **table1_ground_truth.csv/md** and **table2_comparison_pivot.csv/md** in
 
 ---
 
-This document provides an overview of the **ASR Preprocessing & Alignment Pipeline**. If you have further questions, refer to the script comments or reach out for additional support.
-
